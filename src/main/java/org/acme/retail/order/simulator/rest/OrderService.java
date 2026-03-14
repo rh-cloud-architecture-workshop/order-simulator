@@ -17,6 +17,6 @@ public interface OrderService {
     @Path("/")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    Response placeOrder(OrderDto order);
+    Response createOrder(OrderDto order);
 
 }

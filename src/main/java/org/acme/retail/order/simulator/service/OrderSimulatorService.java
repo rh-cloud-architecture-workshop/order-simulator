@@ -1,7 +1,10 @@
 package org.acme.retail.order.simulator.service;
 
+import io.quarkus.logging.Log;
+import io.quarkus.runtime.configuration.DurationConverter;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.acme.retail.order.simulator.dto.LineItemDto;
 import org.acme.retail.order.simulator.dto.OrderDto;
 import org.acme.retail.order.simulator.dto.ShippingAddressDto;
@@ -9,9 +12,8 @@ import org.acme.retail.order.simulator.model.customer.Customer;
 import org.acme.retail.order.simulator.model.product.Product;
 import org.acme.retail.order.simulator.rest.OrderService;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -22,52 +24,48 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class OrderSimulatorService {
 
-    private static final Logger log = LoggerFactory.getLogger(OrderSimulatorService.class);
-
     @RestClient
     OrderService orderService;
 
-    private volatile List<Customer> customers;
+    @Inject
+    Customers customerHolder;
 
-    private volatile List<Product> products;
+    @Inject
+    Products productHolder;
 
     private final Random random = new Random();
 
-    public JsonObject simulate(String customerId, Integer count) {
-
-        getCustomers();
-        log.info("Found " + customers.size() + " customers");
-        getProducts();
-        log.info("Found " + products.size() + " products");
+    public JsonObject simulate(String customerId, Integer count, String period) {
         if (count == null) {
             count = 0;
         }
         if (customerId != null) {
-            Customer customer = customers.stream().filter(cust -> cust.userId.equals(customerId)).findFirst().orElse(null);
+            Customer customer = customerHolder.customers.stream().filter(cust -> cust.userId.equals(customerId)).findFirst().orElse(null);
             if (customer == null) {
                 return new JsonObject().put("error", "Customer " + customerId + " not found");
             }
-            log.info("Generating " + count + " sales for customer " + customer.userId);
+            Log.infof("Generating %s orders for customer %s", count, customer.userId);
             for (int i = 0; i < count; i++) {
-                createOrder(customer);
+                createOrder(customer, period);
             }
-            log.info("Complete!");
+            Log.infof("Complete!");
             return new JsonObject().put("result", "Generated " + count + " orders for customer " + customer.userId);
         } else {
-            log.info("Generating " + count + " sales for random customers");
+            Log.infof("Generating %s orders for random customers", count);
             for (int i = 0; i < count; i++) {
-                createOrder(randomCustomer());
+                createOrder(randomCustomer(), period);
             }
-            log.info("Complete!");
+            Log.info("Complete!");
             return new JsonObject().put("result", "Generated " + count + " orders for random customers");
         }
     }
 
-    private void createOrder(Customer customer) {
+    private void createOrder(Customer customer, String period) {
+        Duration duration = DurationConverter.parseDuration(period);
         int numProducts = random.nextInt(5) + 1;
         Set<Product> productSet = new HashSet<>();
         while (productSet.size() < numProducts) {
-            Product p = products.get(random.nextInt(products.size() - 1));
+            Product p = productHolder.products.get(random.nextInt(productHolder.products.size() - 1));
             productSet.add(p);
         }
         List<LineItemDto> lineItems = productSet.stream().map(p -> LineItemDto.builder()
@@ -87,39 +85,24 @@ public class OrderSimulatorService {
                 .build();
         OrderDto order = OrderDto.builder()
                 .withCustomer(customer.userId)
-                .withTimestamp(Instant.ofEpochMilli(System.currentTimeMillis()))
+                .withTimestamp(randomInstant(duration))
                 .withShippingAddress(shippingAddress)
                 .withOrderLineItems(lineItems)
                 .build();
-        orderService.placeOrder(order);
+        orderService.createOrder(order);
+    }
+
+    private Instant randomInstant(Duration duration) {
+        Instant now = Instant.now();
+        Instant start = now.minus(duration);
+        long startMillis = start.toEpochMilli();
+        long endMillis = now.toEpochMilli();
+        long randomMillis = startMillis + (long) (random.nextDouble() * (endMillis - startMillis + 1));
+        return Instant.ofEpochMilli(randomMillis);
     }
 
     private Customer randomCustomer() {
-        return customers.get(random.nextInt(customers.size() - 1));
-    }
-
-    private List<Customer> getCustomers() {
-        List<Customer> result = customers;
-        if (result == null) {
-            synchronized (this) {
-                if (customers == null) {
-                    customers = result = Customer.listAll();
-                }
-            }
-        }
-        return result;
-    }
-
-    private List<Product> getProducts() {
-        List<Product> result = products;
-        if (result == null) {
-            synchronized (this) {
-                if (products == null) {
-                    products = result = Product.listAll();
-                }
-            }
-        }
-        return result;
+        return customerHolder.customers.get(random.nextInt(customerHolder.customers.size() - 1));
     }
 
 }

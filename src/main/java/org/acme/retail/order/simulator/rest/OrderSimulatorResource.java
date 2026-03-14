@@ -26,8 +26,9 @@ public class OrderSimulatorResource {
         JsonObject json = new JsonObject(payload);
         Integer count = json.getInteger("count");
         String customer = json.getString("customer");
+        String period = json.getString("period");
         return Uni.createFrom().item(() -> payload).emitOn(Infrastructure.getDefaultWorkerPool())
-                .onItem().transform(s -> orderSimulatorService.simulate(customer, count))
+                .onItem().transform(s -> orderSimulatorService.simulate(customer, count, period))
                 .onItem().transform(j -> {
                     if (j.containsKey("result")) {
                         return Response.ok(j.toString()).build();

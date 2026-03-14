@@ -16,9 +16,11 @@ paths:
                 value:
                   customer: efisher
                   count: 5
+                  period: 30d
               random customers:
                 value:
                   count: 50
+                  period: 30d
         required: true
       tags:
         - Simulator Resource
