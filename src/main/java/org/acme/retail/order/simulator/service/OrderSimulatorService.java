@@ -1,6 +1,7 @@
 package org.acme.retail.order.simulator.service;
 
 import io.vertx.core.json.JsonObject;
+import jakarta.enterprise.context.ApplicationScoped;
 import org.acme.retail.order.simulator.dto.LineItemDto;
 import org.acme.retail.order.simulator.dto.OrderDto;
 import org.acme.retail.order.simulator.dto.ShippingAddressDto;
@@ -11,8 +12,6 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.transaction.Transactional;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
